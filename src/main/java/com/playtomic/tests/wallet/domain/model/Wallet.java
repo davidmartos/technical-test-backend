@@ -2,6 +2,7 @@ package com.playtomic.tests.wallet.domain.model;
 
 import com.playtomic.tests.wallet.domain.exception.InsufficientBalanceException;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -9,12 +10,14 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class Wallet {
 
     private UUID id;
     private BigDecimal balance;
+    private Long version;
 
     public void topUp(BigDecimal amount) {
         this.balance = this.balance.add(amount);

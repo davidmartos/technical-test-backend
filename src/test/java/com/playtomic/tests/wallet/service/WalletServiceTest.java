@@ -44,7 +44,7 @@ public class WalletServiceTest {
     public void setUp() {
         MockitoAnnotations.openMocks(this);
         walletId = UUID.randomUUID();
-        wallet = new Wallet(walletId, BigDecimal.valueOf(100.00));
+        wallet = Wallet.builder().id(walletId).balance(BigDecimal.valueOf(100.00)).build();
     }
 
     @Test

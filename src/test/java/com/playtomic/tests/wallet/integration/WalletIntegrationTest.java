@@ -50,7 +50,10 @@ public class WalletIntegrationTest {
 
         // Initialize test data
         walletId = UUID.randomUUID();
-        var walletEntity = new WalletDbEntity(walletId, BigDecimal.valueOf(100.00));
+        var walletEntity = WalletDbEntity.builder()
+                .id(walletId)
+                .balance(BigDecimal.valueOf(100.00))
+                .build();
         jpaWalletRepository.save(walletEntity);
     }
 

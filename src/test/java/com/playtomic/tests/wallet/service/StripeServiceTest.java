@@ -49,7 +49,7 @@ public class StripeServiceTest {
             when(restTemplate.postForObject(eq(testUri), any(), eq(Payment.class)))
                     .thenThrow(new StripeAmountTooSmallException("Stripe Amount is Too Small"));
 
-            stripeService.charge("4242 4242 4242 4242", new BigDecimal(5));
+            stripeService.charge("4242 4242 4242 4242", BigDecimal.valueOf(5));
         });
     }
 
@@ -58,6 +58,6 @@ public class StripeServiceTest {
         when(restTemplate.postForObject(eq(testUri), any(), eq(Payment.class)))
                 .thenReturn(Payment.builder().build());
 
-        stripeService.charge("4242 4242 4242 4242", new BigDecimal(15));
+        stripeService.charge("4242 4242 4242 4242", BigDecimal.valueOf(15));
     }
 }

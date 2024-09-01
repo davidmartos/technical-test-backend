@@ -38,4 +38,10 @@ public class WalletRepositoryImpl implements WalletRepository {
         var savedEntity = jpaWalletRepository.save(dbEntity);
         return objectMapper.convertValue(savedEntity, Wallet.class);
     }
+
+    @Override
+    public Optional<Wallet> findByIdAndTransactionIdempotencyKey(UUID id, String idempotencyKey) {
+        return jpaWalletRepository.findByIdAndTransactionIdempotencyKey(id, idempotencyKey)
+                .map(walletDbEntity -> objectMapper.convertValue(walletDbEntity, Wallet.class));
+    }
 }

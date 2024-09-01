@@ -21,6 +21,8 @@ public class WalletDbEntity {
 
     private BigDecimal balance;
 
+    private String transactionIdempotencyKey;
+
     @Version
     private Long version;
 }

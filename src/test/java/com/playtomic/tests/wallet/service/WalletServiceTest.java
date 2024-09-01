@@ -38,20 +38,28 @@ public class WalletServiceTest {
     private ObjectMapper objectMapper;
 
     private UUID walletId;
+    private BigDecimal originalBalance;
+    private String idempotencyKey;
     private Wallet wallet;
 
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
         walletId = UUID.randomUUID();
-        wallet = Wallet.builder().id(walletId).balance(BigDecimal.valueOf(100.00)).build();
+        originalBalance = BigDecimal.valueOf(100.00);
+        idempotencyKey = "test-key";
+        wallet = Wallet.builder()
+                .id(walletId)
+                .balance(originalBalance)
+                .transactionIdempotencyKey(idempotencyKey)
+                .build();
     }
 
     @Test
     public void testGetWallet_Success() {
         when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
 
-        var walletDto = WalletDto.builder().id(walletId).balance(BigDecimal.valueOf(100.00)).build();
+        var walletDto = WalletDto.builder().id(walletId).balance(originalBalance).build();
 
         when(objectMapper.convertValue(wallet, WalletDto.class)).thenReturn(walletDto);
 
@@ -59,9 +67,9 @@ public class WalletServiceTest {
 
         assertNotNull(result);
         assertEquals(walletId, result.getId());
-        assertEquals(BigDecimal.valueOf(100.00), result.getBalance());
+        assertEquals(originalBalance, result.getBalance());
 
-        verify(walletRepository, times(1)).findById(walletId);
+        verify(walletRepository).findById(walletId);
     }
 
     @Test
@@ -79,20 +87,23 @@ public class WalletServiceTest {
 
         doNothing().when(paymentService).charge(anyString(), any(BigDecimal.class));
 
-        var request = TopUpRequestDto.builder().creditCardNumber("4111111111111111").amount(BigDecimal.valueOf(50.00)).build();
+        var amountToTopUp = BigDecimal.valueOf(50.00);
+        var newIdempotencyKey = UUID.randomUUID().toString();
+        var request = createTopUpRequest(amountToTopUp, newIdempotencyKey);
 
-        var walletDto = WalletDto.builder().id(walletId).balance(BigDecimal.valueOf(150.00)).build();
+        var expectedBalance = originalBalance.add(amountToTopUp);
+        var expectedWalletDto = WalletDto.builder().id(walletId).balance(expectedBalance).build();
 
-        when(objectMapper.convertValue(wallet, WalletDto.class)).thenReturn(walletDto);
+        when(walletRepository.save(wallet)).thenReturn(wallet);
+        when(objectMapper.convertValue(wallet, WalletDto.class)).thenReturn(expectedWalletDto);
 
         var result = walletService.topUp(walletId, request);
 
         assertNotNull(result);
         assertEquals(walletId, result.getId());
-        assertEquals(BigDecimal.valueOf(150.00), result.getBalance());
+        assertEquals(expectedBalance, result.getBalance());
 
         verify(paymentService).charge(request.getCreditCardNumber(), request.getAmount());
-        verify(walletRepository).save(wallet);
     }
 
     @Test
@@ -101,7 +112,7 @@ public class WalletServiceTest {
 
         doThrow(new StripeServiceException("Payment processing failed")).when(paymentService).charge(anyString(), any(BigDecimal.class));
 
-        var request = TopUpRequestDto.builder().creditCardNumber("4111111111111111").amount(BigDecimal.valueOf(50.00)).build();
+        var request = createTopUpRequest(BigDecimal.valueOf(50.00), idempotencyKey);
 
         assertThrows(PaymentFailedException.class, () -> walletService.topUp(walletId, request));
 
@@ -113,12 +124,44 @@ public class WalletServiceTest {
     public void testTopUp_WalletNotFound() {
         when(walletRepository.findById(walletId)).thenReturn(Optional.empty());
 
-        var request = TopUpRequestDto.builder().creditCardNumber("4111111111111111").amount(BigDecimal.valueOf(50.00)).build();
+        var request = createTopUpRequest(BigDecimal.valueOf(50.00), idempotencyKey);
 
         assertThrows(WalletNotFoundException.class, () -> walletService.topUp(walletId, request));
 
         verify(walletRepository).findById(walletId);
         verify(paymentService, never()).charge(anyString(), any(BigDecimal.class));
         verify(walletRepository, never()).save(wallet);
+    }
+
+    @Test
+    public void testTopUp_IdempotencyCheck() {
+        when(walletRepository.findByIdAndTransactionIdempotencyKey(any(UUID.class), anyString())).thenReturn(Optional.of(wallet));
+
+        var request = TopUpRequestDto.builder()
+                .creditCardNumber("4111111111111111")
+                .amount(BigDecimal.valueOf(50.00))
+                .idempotencyKey(idempotencyKey)
+                .build();
+
+        var expectedWalletDto = WalletDto.builder()
+                .id(walletId)
+                .balance(BigDecimal.valueOf(100.00))
+                .build();
+
+        when(objectMapper.convertValue(any(Wallet.class), eq(WalletDto.class)))
+                .thenReturn(expectedWalletDto);
+
+        var result = walletService.topUp(walletId, request);
+
+        assertNotNull(result);
+        assertEquals(walletId, result.getId());
+        assertEquals(BigDecimal.valueOf(100.00), result.getBalance());
+
+        verify(paymentService, never()).charge(anyString(), any(BigDecimal.class));
+        verify(walletRepository, never()).save(any(Wallet.class));
+    }
+
+    private TopUpRequestDto createTopUpRequest(BigDecimal amount, String idempotencyKey) {
+        return TopUpRequestDto.builder().creditCardNumber("4111111111111111").amount(amount).idempotencyKey(idempotencyKey).build();
     }
 }

@@ -17,6 +17,7 @@ public class Wallet {
 
     private UUID id;
     private BigDecimal balance;
+    private String transactionIdempotencyKey;
     private Long version;
 
     public void topUp(BigDecimal amount) {

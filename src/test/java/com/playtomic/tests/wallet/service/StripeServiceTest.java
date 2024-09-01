@@ -6,7 +6,6 @@ import com.playtomic.tests.wallet.infraestructure.client.StripeService;
 import com.playtomic.tests.wallet.infraestructure.exception.StripeAmountTooSmallException;
 import com.playtomic.tests.wallet.infraestructure.exception.StripeRestTemplateResponseErrorHandler;
 import com.playtomic.tests.wallet.infraestructure.exception.StripeServiceException;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -15,6 +14,7 @@ import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.net.URI;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -45,7 +45,7 @@ public class StripeServiceTest {
 
     @Test
     public void test_charge_throwsStripeAmountTooSmallException() {
-        Assertions.assertThrows(StripeAmountTooSmallException.class, () -> {
+        assertThrows(StripeAmountTooSmallException.class, () -> {
             when(restTemplate.postForObject(eq(testUri), any(), eq(Payment.class)))
                     .thenThrow(new StripeAmountTooSmallException("Stripe Amount is Too Small"));
 
@@ -59,5 +59,14 @@ public class StripeServiceTest {
                 .thenReturn(Payment.builder().build());
 
         stripeService.charge("4242 4242 4242 4242", BigDecimal.valueOf(15));
+    }
+
+    @Test
+    public void testCharge_ThrowsStripeServiceException() {
+        when(restTemplate.postForObject(eq(testUri), any(), eq(Payment.class)))
+                .thenReturn(null);
+
+        assertThrows(StripeServiceException.class, () ->
+                stripeService.charge("4242 4242 4242 4242", BigDecimal.valueOf(15)));
     }
 }

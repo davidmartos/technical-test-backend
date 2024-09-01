@@ -23,7 +23,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-
 @SpringBootTest
 @ActiveProfiles("test")
 public class StripeIntegrationTest {
@@ -78,4 +77,5 @@ public class StripeIntegrationTest {
 
         verify(restTemplate).postForObject(any(URI.class), any(), eq(Payment.class));
     }
+
 }

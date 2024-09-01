@@ -42,6 +42,7 @@ public class WalletIntegrationTest {
     private PaymentService paymentService;
 
     private UUID walletId;
+    private String transactionIdempotencyKey;
 
     @BeforeEach
     void setUp() {
@@ -50,9 +51,11 @@ public class WalletIntegrationTest {
 
         // Initialize test data
         walletId = UUID.randomUUID();
+        transactionIdempotencyKey = UUID.randomUUID().toString();
         var walletEntity = WalletDbEntity.builder()
                 .id(walletId)
                 .balance(BigDecimal.valueOf(100.00))
+                .transactionIdempotencyKey(transactionIdempotencyKey)
                 .build();
         jpaWalletRepository.save(walletEntity);
     }
@@ -67,16 +70,36 @@ public class WalletIntegrationTest {
     }
 
     @Test
-    void testTopUp() throws Exception {
+    void testGetWalletNotFound() throws Exception {
+        UUID nonExistentWalletId = UUID.randomUUID();
+        mockMvc.perform(get("/wallet/" + nonExistentWalletId)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testTopUpIdempotency() throws Exception {
+        var newIdempotenceKey = UUID.randomUUID().toString();
         var request = TopUpRequestDto.builder()
                 .creditCardNumber("4111111111111111")
-                .amount(BigDecimal.valueOf(50.00)).build();
+                .amount(BigDecimal.valueOf(50.00))
+                .idempotencyKey(newIdempotenceKey)
+                .build();
 
+        // First request
         mockMvc.perform(post("/wallet/" + walletId + "/top-up")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
+                .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.id").value(walletId.toString()))
                 .andExpect(jsonPath("$.balance").value(150.00));
+
+        // Second request with same idempotency key
+        mockMvc.perform(post("/wallet/" + walletId + "/top-up")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.id").value(walletId.toString()))
+                .andExpect(jsonPath("$.balance").value(150.00));  // Balance should not change
     }
 }

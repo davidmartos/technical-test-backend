@@ -10,4 +10,6 @@ public interface WalletRepository {
     Optional<Wallet> findById(UUID id);
 
     Wallet save(Wallet wallet);
+
+    Optional<Wallet> findByIdAndTransactionIdempotencyKey(UUID id, String idempotencyKey);
 }
